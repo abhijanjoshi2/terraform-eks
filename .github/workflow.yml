@@ -1,0 +1,58 @@
+name: Terraform Plan and Apply using Terraform Cloud
+
+on:
+  # Trigger the workflow on push or pull request to main branch
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual triggering of the workflow
+
+jobs:
+  terraform:
+    name: Terraform Plan and Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the latest code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          cli_config_credentials_hostname: "app.terraform.io"
+          cli_config_credentials_token: ${{ secrets.TF_TOKEN }}
+          terraform_version: 1.5.7  # Specify the version you need
+
+      - name: Check TF_TOKEN presence
+        run: |
+          if [ -z "${{ secrets.TF_TOKEN }}" ]; then
+            echo "TF_TOKEN is not set!"
+            exit 1
+          else
+            echo "TF_TOKEN is set."
+          fi
+
+      # Step 3: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+        env:
+          # API Token for Terraform Cloud authentication
+          TF_CLOUD_TOKEN: "${{ secrets.TF_TOKEN }}"
+
+      # Step 4: Terraform Plan (to generate and save the plan file)
+      - name: Terraform Plan
+        run: terraform plan
+        env:
+          TF_CLOUD_TOKEN: "${{ secrets.TF_TOKEN }}"
+
+      # Step 5: Apply only if on the main branch (to avoid applying on PRs)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve
+        env:
+          TF_CLOUD_TOKEN: "${{ secrets.TF_TOKEN }}"
